@@ -6,7 +6,7 @@ from matcher import fifo_match
 from scorer import compute_score
 from config import VADE_BUCKETS
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="docs", static_folder="docs/static")
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB
 
 

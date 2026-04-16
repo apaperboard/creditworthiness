@@ -66,7 +66,13 @@ The frontend relies on these exact keys — keep them in sync if you change them
 }
 ```
 
-### Frontend (`static/dashboard.js`, `templates/index.html`)
+### Frontend (`docs/index.html`, `docs/static/dashboard.js`, `docs/static/pipeline.js`)
+
+All frontend assets live in `docs/` because GitHub Pages serves that folder, and Flask is configured (`app = Flask(__name__, template_folder="docs", static_folder="docs/static")`) to use the same folder — so `python app.py` and the deployed Pages site serve identical files. There is no root-level `templates/` or `static/`.
+
+`pipeline.js` is a client-side port of `parser.py` + `matcher.py` + `scorer.py` + the builder functions in `app.py`, using SheetJS to read xlsx in-browser. `dashboard.js`'s `postAnalyze` calls `window.VadePipeline.analyzeFile(file)` directly — no network call. The Flask `/analyze` endpoint still exists but is effectively dead code; keep the Python modules as the spec/reference implementation.
+
+**If you change scoring or parsing logic, update both `pipeline.js` AND the corresponding Python module** — they're parallel implementations and must stay in sync. `config.py` → top-of-file constants in `pipeline.js`; `parser.py` → `parseExcel` / `classifyTransaction`; `matcher.py` → `fifoMatch`; `scorer.py` → `score*` / `computeScore`; `app.py` builders → `buildChartData` / `buildSummary` / `buildDetailTable`.
 
 Single-page app with **three views** switched via `showView(name)` which toggles a `hidden` class on `#upload-section`, `#portfolio-section`, `#dashboard`:
 
@@ -74,7 +80,7 @@ Single-page app with **three views** switched via `showView(name)` which toggles
 - **portfolio** — sortable table, one row per customer (only shown when >1 file uploaded)
 - **single** — full Chart.js dashboard for one customer
 
-The **mass-upload flow reuses the existing `/analyze` endpoint** — no backend changes. `runBatch()` posts files through a **client-side worker pool with concurrency 3** (`await Promise.all([worker(), worker(), worker()])`). Each result is denormalized into a flat record via `buildSuccessRecord`/`buildErrorRecord` for fast sorting. Error rows always sink to the bottom of the portfolio regardless of sort direction.
+The **mass-upload flow runs entirely client-side** — `runBatch()` dispatches files through a **worker pool with concurrency 3** (`await Promise.all([worker(), worker(), worker()])`), each worker calling `postAnalyze` → `VadePipeline.analyzeFile`. Each result is denormalized into a flat record via `buildSuccessRecord`/`buildErrorRecord` for fast sorting. Error rows always sink to the bottom of the portfolio regardless of sort direction.
 
 Drill-down from portfolio row → single dashboard is a pure client-side transition (`renderDashboard(record.data); showView('single')`) — the analyze response is cached in `portfolioResults` so going back and forth costs nothing. `drillSourceView` tracks where the user came from so "New Analysis" clears state correctly.
 
