@@ -15,11 +15,11 @@
 
     <section id="upload-section">
         <form id="upload-form">
-            <div class="upload-area" id="drop-zone">
+            <label for="file-input" class="upload-area" id="drop-zone" style="cursor: pointer;">
                 <div class="upload-icon">&#128196;</div>
                 <p id="drop-zone-text">Drop one or more Excel balance statements here or click to select</p>
-                <input type="file" id="file-input" accept=".xlsx,.xls" multiple />
-            </div>
+            </label>
+            <input type="file" id="file-input" accept=".xlsx,.xls" multiple style="display:none" />
             <ul id="file-list" class="file-list hidden"></ul>
             <button type="submit" id="analyze-btn" disabled>Analyze</button>
         </form>
