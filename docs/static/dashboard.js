@@ -44,11 +44,14 @@ function resetCharts() {
 }
 
 async function postAnalyze(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await fetch('/analyze', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    // Pure client-side: the pipeline runs entirely in the browser (SheetJS
+    // reads the xlsx, then parser/matcher/scorer/builders run in pipeline.js).
+    // No backend required — works on GitHub Pages or any static host.
+    if (!window.VadePipeline) {
+        throw new Error('Analysis pipeline not loaded (check that pipeline.js and SheetJS are included)');
+    }
+    const data = await window.VadePipeline.analyzeFile(file);
+    if (data && data.error) throw new Error(data.error);
     return data;
 }
 
