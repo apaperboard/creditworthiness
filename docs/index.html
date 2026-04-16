@@ -149,6 +149,44 @@
         </div>
     </section>
 
-    <script src="static/dashboard.js"></script>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+  const input = document.getElementById('file-input');
+  const dropZone = document.getElementById('drop-zone');
+  const fileList = document.getElementById('file-list');
+  const analyzeBtn = document.getElementById('analyze-btn');
+  function updateFileList(files) {
+    fileList.innerHTML = '';
+    if (!files || files.length === 0) {
+      analyzeBtn.disabled = true;
+      return;
+    }
+    for (let i = 0; i < files.length; i++) {
+      const li = document.createElement('li');
+      li.textContent = files[i].name;
+      fileList.appendChild(li);
+    }
+    analyzeBtn.disabled = false;
+  }
+  input.addEventListener('change', function(e) {
+    updateFileList(input.files);
+  });
+  dropZone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', function() {
+    dropZone.classList.remove('dragover');
+  });
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer && e.dataTransfer.files) {
+      input.files = e.dataTransfer.files;
+      updateFileList(input.files);
+    }
+  });
+});
+</script>
 </body>
 </html>
