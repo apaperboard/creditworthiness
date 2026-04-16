@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vade Suresi - Credit Worthiness Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>Kredi Degerlendirme</h1>
+        <p class="subtitle">Credit Worthiness Analysis</p>
+    </header>
+
+    <section id="upload-section">
+        <form id="upload-form">
+            <div class="upload-area" id="drop-zone">
+                <div class="upload-icon">&#128196;</div>
+                <p id="drop-zone-text">Drop one or more Excel balance statements here or click to select</p>
+                <input type="file" id="file-input" accept=".xlsx,.xls" multiple />
+            </div>
+            <ul id="file-list" class="file-list hidden"></ul>
+            <button type="submit" id="analyze-btn" disabled>Analyze</button>
+        </form>
+        <div id="error-msg" class="error hidden"></div>
+        <div id="batch-progress" class="hidden">
+            <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+            <p id="progress-label" class="progress-label">Analyzing...</p>
+        </div>
+    </section>
+
+    <section id="portfolio-section" class="hidden">
+        <div class="portfolio-header">
+            <div>
+                <h2>Portfolio Overview</h2>
+                <span id="portfolio-meta" class="period"></span>
+            </div>
+            <button id="portfolio-new-btn" class="secondary-btn">New Analysis</button>
+        </div>
+        <div class="card">
+            <div class="table-wrapper">
+                <table id="portfolio-table" class="portfolio-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="customer">Customer</th>
+                            <th data-sort="period">Period</th>
+                            <th data-sort="score" class="sort-desc numeric">Score</th>
+                            <th data-sort="grade">Grade</th>
+                            <th data-sort="outstanding" class="numeric">Outstanding</th>
+                            <th data-sort="avg_vade" class="numeric">Avg Vade</th>
+                            <th data-sort="avg_handover" class="numeric">Avg Handover</th>
+                            <th data-sort="coverage" class="numeric">Coverage</th>
+                            <th data-sort="status">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="portfolio-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section id="dashboard" class="hidden">
+        <!-- Summary Bar -->
+        <div class="summary-bar">
+            <div class="customer-info">
+                <h2 id="customer-name"></h2>
+                <span id="period-range" class="period"></span>
+            </div>
+            <div class="score-display">
+                <div class="score-circle" id="score-circle">
+                    <span class="score-value" id="score-value"></span>
+                    <span class="score-max">/100</span>
+                </div>
+                <div class="grade-badge" id="grade-badge"></div>
+            </div>
+        </div>
+
+        <!-- Score Breakdown -->
+        <div class="card">
+            <h3>Score Breakdown</h3>
+            <div class="score-components" id="score-components"></div>
+        </div>
+
+        <!-- Charts Row 1 -->
+        <div class="chart-row">
+            <div class="card chart-card">
+                <h3>Payment Timeline</h3>
+                <div class="chart-container"><canvas id="chart-timeline"></canvas></div>
+            </div>
+            <div class="card chart-card">
+                <h3>Balance Trend</h3>
+                <div class="chart-container"><canvas id="chart-balance"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Charts Row 2 -->
+        <div class="chart-row">
+            <div class="card chart-card">
+                <h3>Vade Distribution (Days)</h3>
+                <div class="chart-container"><canvas id="chart-vade"></canvas></div>
+            </div>
+            <div class="card chart-card">
+                <h3>Handover Speed (Days)</h3>
+                <div class="chart-container"><canvas id="chart-handover"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Charts Row 3 -->
+        <div class="card">
+            <h3>Monthly Invoice vs Payment</h3>
+            <div class="chart-container chart-container--wide"><canvas id="chart-monthly"></canvas></div>
+        </div>
+
+        <!-- Summary Metrics -->
+        <div class="card">
+            <h3>Summary Metrics</h3>
+            <div class="metrics-grid" id="metrics-grid"></div>
+        </div>
+
+        <!-- Detail Table -->
+        <div class="card">
+            <h3>Invoice Details</h3>
+            <div class="table-wrapper">
+                <table id="detail-table">
+                    <thead>
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Invoice Date</th>
+                            <th>Amount</th>
+                            <th>Matched</th>
+                            <th>Payment Date</th>
+                            <th>Payment</th>
+                            <th>Type</th>
+                            <th>Handover Days</th>
+                            <th>Vade Days</th>
+                            <th>Settlement</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detail-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="dashboard-nav">
+            <button id="back-to-portfolio-btn" class="secondary-btn hidden">&larr; Back to Portfolio</button>
+            <button id="new-analysis-btn" class="secondary-btn">New Analysis</button>
+        </div>
+    </section>
+
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>
