@@ -6,6 +6,8 @@
   <title>Vade Suresi - Credit Worthiness Analysis</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
   <link rel="stylesheet" href="static/style.css">
 </head>
 <body>
@@ -65,6 +67,14 @@
     <div id="dashboard-nav">
       <button id="back-to-portfolio-btn" class="secondary-btn hidden">&larr; Back to Portfolio</button>
       <button id="new-analysis-btn" class="secondary-btn">New Analysis</button>
+      <div class="export-dropdown">
+        <button id="export-btn" class="secondary-btn" type="button">Export &#9662;</button>
+        <div id="export-menu" class="export-menu hidden" role="menu">
+          <button type="button" data-export="excel" role="menuitem">Excel (.xlsx)</button>
+          <button type="button" data-export="csv" role="menuitem">CSV</button>
+          <button type="button" data-export="pdf" role="menuitem">PDF</button>
+        </div>
+      </div>
     </div>
 
     <!-- Summary Bar -->

@@ -18,6 +18,8 @@ const portfolioTable = document.getElementById('portfolio-table');
 const backToPortfolioBtn = document.getElementById('back-to-portfolio-btn');
 const newAnalysisBtn = document.getElementById('new-analysis-btn');
 const portfolioNewBtn = document.getElementById('portfolio-new-btn');
+const exportBtn = document.getElementById('export-btn');
+const exportMenu = document.getElementById('export-menu');
 
 // --- State ---
 let selectedFiles = [];
@@ -27,6 +29,7 @@ let currentView = 'upload';
 let drillSourceView = 'upload';
 let batchInFlight = false;
 let charts = [];
+let currentAnalysis = null;
 
 const DROP_ZONE_DEFAULT_TEXT = 'Drop one or more Excel balance statements here or click to select';
 
@@ -465,6 +468,7 @@ function scoreColor(score) {
 
 // Render
 function renderDashboard(data) {
+    currentAnalysis = data;
     document.getElementById('customer-name').textContent = data.customer;
     document.getElementById('period-range').textContent =
         fmtDate(data.period.start) + ' — ' + fmtDate(data.period.end);
@@ -708,3 +712,217 @@ function renderDetailTable(details) {
         </tr>`;
     }).join('');
 }
+
+// --- Export ---
+function safeFileName(s) {
+    const cleaned = String(s || 'analysis')
+        .replace(/[^\p{L}\p{N} _-]/gu, '')
+        .trim()
+        .replace(/\s+/g, '_');
+    return cleaned || 'analysis';
+}
+
+function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function buildOverviewRows(data) {
+    const s = data.summary;
+    const rows = [
+        ['Customer', data.customer],
+        ['Period Start', data.period.start],
+        ['Period End', data.period.end],
+        ['Total Score', data.score.total_score],
+        ['Grade', `${data.score.grade} - ${data.score.grade_label}`],
+        [],
+        ['Score Components'],
+        ['Component', 'Score'],
+    ];
+    for (const [k, v] of Object.entries(data.score.components)) {
+        rows.push([COMPONENT_LABELS[k] || k, v.score]);
+    }
+    rows.push([]);
+    rows.push(['Summary Metrics']);
+    rows.push(['Total Invoiced (TL)', s.total_invoiced]);
+    rows.push(['Total Paid (TL)', s.total_paid]);
+    rows.push(['End Balance (TL)', s.end_balance]);
+    rows.push(['Invoices', s.num_invoices]);
+    rows.push(['Payments', s.num_payments]);
+    rows.push(['Avg Vade (days)', s.avg_vade_days]);
+    rows.push(['Max Vade (days)', s.max_vade_days]);
+    rows.push(['Avg Handover (days)', s.avg_handover_days]);
+    rows.push(['Coverage (%)', s.payment_coverage_pct]);
+    rows.push(['Outstanding (TL)', s.unmatched_amount]);
+    rows.push(['Unmatched Invoices', s.unmatched_invoices]);
+    return rows;
+}
+
+const DETAIL_HEADERS = [
+    'Invoice #', 'Invoice Date', 'Amount', 'Matched',
+    'Payment Date', 'Payment', 'Type',
+    'Handover Days', 'Vade Days', 'Settlement', 'Status', 'Remaining',
+];
+
+function buildDetailRow(r) {
+    return [
+        r.invoice_number || '',
+        r.invoice_date || '',
+        r.invoice_amount,
+        r.matched_amount,
+        r.payment_date || '',
+        r.payment_desc || '',
+        r.payment_type || '',
+        r.handover_days,
+        r.vade_days,
+        r.settlement_date || '',
+        r.status,
+        r.remaining,
+    ];
+}
+
+function exportCSV(data) {
+    const esc = v => {
+        if (v == null) return '';
+        const s = String(v);
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const sections = [];
+    sections.push(buildOverviewRows(data));
+    sections.push([[], ['Invoice Details'], DETAIL_HEADERS, ...data.details.map(buildDetailRow)]);
+    const csv = sections
+        .flat()
+        .map(row => row.map(esc).join(','))
+        .join('\r\n');
+    // BOM so Excel reads UTF-8 correctly
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    downloadBlob(blob, safeFileName(data.customer) + '_analysis.csv');
+}
+
+function exportExcel(data) {
+    if (typeof XLSX === 'undefined') throw new Error('SheetJS (XLSX) not loaded');
+    const wb = XLSX.utils.book_new();
+
+    const ws1 = XLSX.utils.aoa_to_sheet(buildOverviewRows(data));
+    ws1['!cols'] = [{ wch: 26 }, { wch: 24 }];
+    XLSX.utils.book_append_sheet(wb, ws1, 'Overview');
+
+    const detailRows = [DETAIL_HEADERS, ...data.details.map(buildDetailRow)];
+    const ws2 = XLSX.utils.aoa_to_sheet(detailRows);
+    ws2['!cols'] = DETAIL_HEADERS.map((_, i) => ({ wch: i === 5 ? 32 : 14 }));
+    XLSX.utils.book_append_sheet(wb, ws2, 'Invoice Details');
+
+    XLSX.writeFile(wb, safeFileName(data.customer) + '_analysis.xlsx');
+}
+
+function exportPDF(data) {
+    if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF not loaded');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+    // Header
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text(data.customer || 'Analysis', 40, 50);
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(10);
+    doc.text(`Period: ${fmtDate(data.period.start)} - ${fmtDate(data.period.end)}`, 40, 68);
+    doc.text(
+        `Score: ${data.score.total_score}/100  (${data.score.grade} - ${data.score.grade_label})`,
+        40, 82
+    );
+
+    // Score components
+    doc.autoTable({
+        startY: 100,
+        head: [['Component', 'Score']],
+        body: Object.entries(data.score.components).map(([k, v]) =>
+            [COMPONENT_LABELS[k] || k, v.score]),
+        headStyles: { fillColor: [59, 130, 246] },
+        styles: { fontSize: 9 },
+        margin: { left: 40, right: 40 },
+    });
+
+    // Summary metrics
+    const s = data.summary;
+    doc.autoTable({
+        startY: doc.lastAutoTable.finalY + 14,
+        head: [['Metric', 'Value']],
+        body: [
+            ['Total Invoiced', fmt(s.total_invoiced) + ' TL'],
+            ['Total Paid', fmt(s.total_paid) + ' TL'],
+            ['End Balance', fmt(s.end_balance) + ' TL'],
+            ['Invoices', String(s.num_invoices)],
+            ['Payments', String(s.num_payments)],
+            ['Avg Vade', (s.avg_vade_days != null ? s.avg_vade_days : '-') + ' days'],
+            ['Max Vade', (s.max_vade_days != null ? s.max_vade_days : '-') + ' days'],
+            ['Avg Handover', (s.avg_handover_days != null ? s.avg_handover_days : '-') + ' days'],
+            ['Coverage', s.payment_coverage_pct + '%'],
+            ['Outstanding', fmt(s.unmatched_amount) + ' TL (' + s.unmatched_invoices + ' inv)'],
+        ],
+        headStyles: { fillColor: [59, 130, 246] },
+        styles: { fontSize: 9 },
+        margin: { left: 40, right: 40 },
+    });
+
+    // Invoice details
+    doc.autoTable({
+        startY: doc.lastAutoTable.finalY + 14,
+        head: [['Invoice #', 'Date', 'Amount', 'Matched', 'Pmt Date', 'Type', 'HO', 'Vade', 'Settlement', 'Status']],
+        body: data.details.map(r => [
+            r.invoice_number || '-',
+            r.invoice_date ? fmtDate(r.invoice_date) : '-',
+            fmt(r.invoice_amount),
+            fmt(r.matched_amount),
+            r.payment_date ? fmtDate(r.payment_date) : '-',
+            r.payment_type || '-',
+            r.handover_days != null ? r.handover_days : '-',
+            r.vade_days != null ? r.vade_days : '-',
+            r.settlement_date ? fmtDate(r.settlement_date) : '-',
+            r.status + (r.remaining ? ' (' + fmt(r.remaining) + ')' : ''),
+        ]),
+        headStyles: { fillColor: [59, 130, 246] },
+        styles: { fontSize: 8 },
+        columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } },
+        margin: { left: 40, right: 40 },
+    });
+
+    doc.save(safeFileName(data.customer) + '_analysis.pdf');
+}
+
+// Export menu wiring
+exportBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    exportMenu.classList.toggle('hidden');
+});
+
+document.addEventListener('click', e => {
+    if (!exportMenu.contains(e.target) && e.target !== exportBtn) {
+        exportMenu.classList.add('hidden');
+    }
+});
+
+exportMenu.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-export]');
+    if (!btn) return;
+    exportMenu.classList.add('hidden');
+    if (!currentAnalysis) {
+        alert('No analysis loaded to export.');
+        return;
+    }
+    const kind = btn.dataset.export;
+    try {
+        if (kind === 'excel') exportExcel(currentAnalysis);
+        else if (kind === 'csv') exportCSV(currentAnalysis);
+        else if (kind === 'pdf') exportPDF(currentAnalysis);
+    } catch (err) {
+        console.error(err);
+        alert('Export failed: ' + err.message);
+    }
+});
